@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bermain - Kagemusha</title>
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .wrap { max-width: 520px; }
+  .top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .top-bar h2 { margin: 0; font-size: 18px; }
+  .icon-btn {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--paper-2);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .players-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .player-chip {
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    position: relative;
+  }
+  .player-chip.me { border-color: var(--gold); }
+  .player-chip.current-turn { border-color: var(--crimson); box-shadow: 0 0 0 2px rgba(168,58,50,0.2); }
+  .player-chip.dead { opacity: 0.4; }
+  .player-chip.targetable { cursor: pointer; }
+  .player-chip .pname { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .player-chip .pmeta { font-size: 11px; color: var(--ink-soft); display: flex; gap: 8px; }
+
+  .my-hand {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .action-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .action-btn {
+    width: auto; margin: 0;
+    font-size: 13px;
+    padding: 10px;
+    text-align: left;
+    display: block;
+  }
+  .action-btn .a-name { font-weight: 700; display: block; }
+  .action-btn .a-cost { font-size: 11px; opacity: 0.85; font-weight: 400; }
+  .action-btn.disabled { opacity: 0.35; pointer-events: none; }
+
+  .log-box {
+    max-height: 140px;
+    overflow-y: auto;
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(43,36,32,0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal-box {
+    background: var(--paper);
+    border-radius: var(--radius);
+    padding: 20px;
+    max-width: 420px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .respond-panel {
+    background: #fff8e6;
+    border: 1px solid var(--gold);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 16px;
+  }
+  .respond-panel h3 { margin: 0 0 6px; font-size: 15px; }
+  .respond-panel .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  .respond-panel button { margin: 0; }
+
+  .guide-item { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .guide-item:last-child { border-bottom: none; }
+  .guide-item .g-title { font-weight: 700; font-size: 14px; }
+  .guide-item .g-desc { font-size: 12px; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top-bar">
+      <h2 id="roomTitle">Kagemusha</h2>
+      <div style="display:flex; gap:8px;">
+        <div class="icon-btn" id="guideBtn">?</div>
+        <div class="icon-btn" id="leaveGameBtn">×</div>
+      </div>
+    </div>
+
+    <div id="turnBanner" class="hint" style="margin-bottom:10px;"></div>
+
+    <div class="players-row" id="playersRow"></div>
+
+    <div id="respondArea"></div>
+
+    <div class="card-panel">
+      <h3 style="margin-bottom:10px;">Kartu saya</h3>
+      <div class="my-hand" id="myHand"></div>
+    </div>
+
+    <div class="card-panel" id="actionPanel">
+      <h3 style="margin-bottom:10px;">Aksi</h3>
+      <div class="action-grid" id="actionGrid"></div>
+      <p class="hint" id="targetHint" style="display:none;"></p>
+    </div>
+
+    <div class="card-panel">
+      <h3 style="margin-bottom:10px;">Riwayat</h3>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+
+  <div id="modalRoot"></div>
+
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
