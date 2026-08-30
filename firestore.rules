@@ -1,0 +1,44 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    // Profil user sendiri
+    match /users/{userId} {
+      allow read: if isVerified();
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isVerified() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // Room game
+    match /rooms/{roomId} {
+      allow read: if isVerified();
+      allow create: if isVerified() && request.resource.data.hostId == request.auth.uid;
+      // Update diizinkan untuk pemain yang ada di room (join/leave/update state via transaction)
+      allow update: if isVerified();
+      allow delete: if isVerified() && resource.data.hostId == request.auth.uid;
+
+      // Subcollection kartu privat tiap pemain - HANYA pemilik yang bisa baca kartunya sendiri
+      match /privateCards/{playerId} {
+        allow read: if isVerified() && request.auth.uid == playerId;
+        allow write: if isVerified();
+      }
+
+      // Log aksi/history room, semua pemain dalam room boleh baca
+      match /actions/{actionId} {
+        allow read: if isVerified();
+        allow create: if isVerified();
+        allow update, delete: if false;
+      }
+    }
+  }
+}

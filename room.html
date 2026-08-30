@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lobby - Kagemusha</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="kanji">影武者</div>
+      <h1>Kagemusha</h1>
+    </div>
+
+    <div class="card-panel">
+      <p class="hint" style="margin:0;">Kode room</p>
+      <h2 id="roomCode" style="letter-spacing:0.1em;">------</h2>
+      <p class="hint" id="roomVisibilityLabel">-</p>
+      <button class="btn-secondary" id="copyBtn" style="margin-top:8px;">Salin kode</button>
+    </div>
+
+    <div class="card-panel">
+      <h3>Pemain (<span id="playerCount">0</span>/6)</h3>
+      <div id="playerList"></div>
+    </div>
+
+    <div class="card-panel">
+      <h3>Sebelum mulai</h3>
+      <p class="hint" style="margin:0 0 10px;">Minimal 2 pemain untuk memulai. Aksi & mekanisme sama seperti Coup, cek panduan di dalam game kalau lupa.</p>
+      <button id="startBtn" style="display:none;">Mulai permainan</button>
+      <p class="hint" id="waitingHost">Menunggu host memulai permainan...</p>
+    </div>
+
+    <button class="btn-secondary" id="leaveBtn">Keluar room</button>
+  </div>
+
+  <script type="module">
+    import {
+      auth, db,
+      onAuthStateChanged,
+      doc,
+      getDoc,
+      updateDoc,
+      deleteDoc,
+      onSnapshot,
+      arrayUnion,
+      arrayRemove,
+      runTransaction
+    } from "./js/firebase-config.js";
+    import { buildDeck, ROLE_LIST } from "./js/game-rules.js";
+    import { initPageTransition, navigateTo } from "./js/page-transition.js";
+    initPageTransition();
+
+    const params = new URLSearchParams(window.location.search);
+    const roomCode = params.get("code");
+    let currentUser = null;
+    let isHost = false;
+    let unsub = null;
+
+    if (!roomCode) {
+      navigateTo("home.html");
+    }
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user || !user.emailVerified) {
+        navigateTo("login.html");
+        return;
+      }
+      currentUser = user;
+      await joinRoomIfNeeded();
+      listenRoom();
+    });
+
+    async function joinRoomIfNeeded() {
+      const roomRef = doc(db, "rooms", roomCode);
+      try {
+        await runTransaction(db, async (tx) => {
+          const snap = await tx.get(roomRef);
+          if (!snap.exists()) throw new Error("not-found");
+          const room = snap.data();
+          const already = room.players.some((p) => p.uid === currentUser.uid);
+          if (!already) {
+            if (room.players.length >= 6) throw new Error("full");
+            if (room.status !== "waiting") throw new Error("started");
+            tx.update(roomRef, {
+              players: arrayUnion({
+                uid: currentUser.uid,
+                name: currentUser.displayName || currentUser.email,
+                coins: 2,
+                alive: true
+              })
+            });
+          }
+        });
+      } catch (err) {
+        if (err.message === "not-found") {
+          alert("Room tidak ditemukan.");
+        } else if (err.message === "full") {
+          alert("Room sudah penuh.");
+        } else if (err.message === "started") {
+          alert("Room sudah mulai bermain.");
+        }
+        navigateTo("home.html");
+      }
+    }
+
+    function listenRoom() {
+      const roomRef = doc(db, "rooms", roomCode);
+      unsub = onSnapshot(roomRef, (snap) => {
+        if (!snap.exists()) {
+          alert("Room dihapus oleh host.");
+          navigateTo("home.html");
+          return;
+        }
+        const room = snap.data();
+
+        if (room.status === "playing") {
+          navigateTo(`gameplay.html?code=${roomCode}`);
+          return;
+        }
+
+        isHost = room.hostId === currentUser.uid;
+        document.getElementById("roomCode").textContent = room.code;
+        document.getElementById("roomVisibilityLabel").textContent =
+          room.visibility === "public" ? "Room publik" : "Room privat";
+        document.getElementById("playerCount").textContent = room.players.length;
+
+        const listEl = document.getElementById("playerList");
+        listEl.innerHTML = "";
+        room.players.forEach((p) => {
+          const row = document.createElement("div");
+          row.style.cssText = "display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line);";
+          row.innerHTML = `<span>${escapeHtml(p.name)}</span>${p.uid === room.hostId ? '<span class="hint" style="margin:0;">Host</span>' : ""}`;
+          listEl.appendChild(row);
+        });
+
+        const startBtn = document.getElementById("startBtn");
+        const waitingLabel = document.getElementById("waitingHost");
+        if (isHost) {
+          startBtn.style.display = "block";
+          waitingLabel.style.display = "none";
+          startBtn.disabled = room.players.length < 2;
+          startBtn.textContent = room.players.length < 2
+            ? "Butuh minimal 2 pemain"
+            : "Mulai permainan";
+        } else {
+          startBtn.style.display = "none";
+          waitingLabel.style.display = "block";
+        }
+      });
+    }
+
+    document.getElementById("startBtn").addEventListener("click", async () => {
+      const roomRef = doc(db, "rooms", roomCode);
+      const snap = await getDoc(roomRef);
+      const room = snap.data();
+      const deck = buildDeck();
+      const playerCount = room.players.length;
+
+      // Bagi 2 kartu per pemain
+      const hands = {};
+      room.players.forEach((p) => {
+        hands[p.uid] = [deck.pop(), deck.pop()];
+      });
+
+      const btn = document.getElementById("startBtn");
+      btn.disabled = true;
+      btn.textContent = "Menyiapkan...";
+
+      // Simpan kartu privat tiap pemain di subcollection terpisah (aman, cuma pemiliknya yg bisa baca)
+      const { setDoc } = await import("./js/firebase-config.js");
+      for (const uid of Object.keys(hands)) {
+        await setDoc(doc(db, "rooms", roomCode, "privateCards", uid), {
+          cards: hands[uid].map((role) => ({ role, alive: true }))
+        });
+      }
+
+      await updateDoc(roomRef, {
+        status: "playing",
+        deck,
+        turnIndex: 0,
+        players: room.players.map((p) => ({ ...p, coins: 2, alive: true, cardCount: 2 })),
+        log: [{ text: "Permainan dimulai.", ts: Date.now() }],
+        pendingAction: null
+      });
+    });
+
+    document.getElementById("leaveBtn").addEventListener("click", async () => {
+      const roomRef = doc(db, "rooms", roomCode);
+      const snap = await getDoc(roomRef);
+      if (!snap.exists()) {
+        navigateTo("home.html");
+        return;
+      }
+      const room = snap.data();
+      if (room.hostId === currentUser.uid) {
+        await deleteDoc(roomRef);
+      } else {
+        const me = room.players.find((p) => p.uid === currentUser.uid);
+        await updateDoc(roomRef, { players: arrayRemove(me) });
+      }
+      navigateTo("home.html");
+    });
+
+    document.getElementById("copyBtn").addEventListener("click", () => {
+      navigator.clipboard.writeText(roomCode);
+      const btn = document.getElementById("copyBtn");
+      const original = btn.textContent;
+      btn.textContent = "Tersalin!";
+      setTimeout(() => (btn.textContent = original), 1500);
+    });
+
+    function escapeHtml(str) {
+      const div = document.createElement("div");
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    window.addEventListener("beforeunload", () => {
+      if (unsub) unsub();
+    });
+  </script>
+</body>
+</html>

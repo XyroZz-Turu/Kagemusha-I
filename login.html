@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Masuk - Kagemusha</title>
+<link rel="stylesheet" href="css/style.css" />
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <div class="kanji">影武者</div>
+      <h1>Kagemusha</h1>
+    </div>
+
+    <div class="tabs">
+      <div class="tab active" data-tab="login">Masuk</div>
+      <div class="tab" data-tab="register">Daftar</div>
+    </div>
+
+    <!-- LOGIN -->
+    <form id="loginForm" class="card-panel">
+      <label for="loginEmail">Email</label>
+      <input type="email" id="loginEmail" required placeholder="nama@email.com" />
+
+      <label for="loginPassword">Password</label>
+      <input type="password" id="loginPassword" required placeholder="Password" />
+
+      <button type="submit" id="loginBtn">Masuk</button>
+      <div class="error-msg" id="loginError"></div>
+    </form>
+
+    <!-- REGISTER -->
+    <form id="registerForm" class="card-panel" style="display:none;">
+      <label for="regName">Nama pemain</label>
+      <input type="text" id="regName" required placeholder="Nama yang tampil di game" maxlength="20" />
+
+      <label for="regEmail">Email</label>
+      <input type="email" id="regEmail" required placeholder="nama@email.com" />
+
+      <label for="regPassword">Password</label>
+      <input type="password" id="regPassword" required placeholder="Bebas, minimal 6 karakter" minlength="6" />
+
+      <label>Verifikasi</label>
+      <div class="g-recaptcha" id="captchaWidget" data-sitekey="6LdaPZ8tAAAAAMMNSph4YpEeu2AvF1Y5aNW7D0c0"></div>
+      <p class="hint" id="captchaDevNote" style="display:none;">Mode testing: captcha disembunyikan sementara.</p>
+
+      <button type="submit" id="registerBtn">Daftar</button>
+      <div class="error-msg" id="registerError"></div>
+      <p class="hint">Setelah daftar, cek email untuk verifikasi sebelum bisa main.</p>
+    </form>
+
+    <div class="link-row" id="resendRow" style="display:none;">
+      Belum menerima email verifikasi?
+      <a href="#" id="resendLink">Kirim ulang</a>
+    </div>
+  </div>
+
+  <script type="module">
+    import {
+      auth, db,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      sendEmailVerification,
+      updateProfile,
+      onAuthStateChanged,
+      signOut,
+      doc,
+      setDoc,
+      getDoc,
+      serverTimestamp,
+      httpsCallable,
+      functions
+    } from "./js/firebase-config.js";
+    import { initPageTransition, navigateTo } from "./js/page-transition.js";
+    initPageTransition();
+
+    // DEV_MODE = false -> captcha & verifikasi Cloud Function aktif penuh (versi production).
+    // Cloud Function verifyCaptcha WAJIB sudah di-deploy (lihat README) sebelum registrasi bisa jalan.
+    const DEV_MODE = false;
+
+    if (DEV_MODE) {
+      document.getElementById("captchaWidget").style.display = "none";
+      document.getElementById("captchaDevNote").style.display = "block";
+    }
+
+    const tabs = document.querySelectorAll(".tab");
+    const loginForm = document.getElementById("loginForm");
+    const registerForm = document.getElementById("registerForm");
+    const resendRow = document.getElementById("resendRow");
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        const isLogin = tab.dataset.tab === "login";
+        loginForm.style.display = isLogin ? "block" : "none";
+        registerForm.style.display = isLogin ? "none" : "block";
+        resendRow.style.display = "none";
+      });
+    });
+
+    // Kalau sudah login & terverifikasi, langsung lempar ke home
+    onAuthStateChanged(auth, (user) => {
+      if (user && user.emailVerified) {
+        navigateTo("home.html");
+      }
+    });
+
+    function setLoading(btn, loading, label) {
+      btn.disabled = loading;
+      btn.textContent = loading ? "Memproses..." : label;
+    }
+
+    // ----- LOGIN -----
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("loginError");
+      errEl.textContent = "";
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      const btn = document.getElementById("loginBtn");
+      setLoading(btn, true, "Masuk");
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        if (!cred.user.emailVerified) {
+          errEl.textContent = "Email belum diverifikasi. Cek inbox kamu ya.";
+          resendRow.style.display = "block";
+          resendRow.dataset.uid = cred.user.uid;
+          await signOut(auth);
+        } else {
+          navigateTo("home.html");
+        }
+      } catch (err) {
+        errEl.textContent = mapAuthError(err.code);
+      } finally {
+        setLoading(btn, false, "Masuk");
+      }
+    });
+
+    // ----- REGISTER -----
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errEl = document.getElementById("registerError");
+      errEl.textContent = "";
+      const name = document.getElementById("regName").value.trim();
+      const email = document.getElementById("regEmail").value.trim();
+      const password = document.getElementById("regPassword").value;
+      const btn = document.getElementById("registerBtn");
+
+      const captchaToken = window.grecaptcha && !DEV_MODE ? window.grecaptcha.getResponse() : "dev-mode-skip";
+      if (!DEV_MODE && !captchaToken) {
+        errEl.textContent = "Selesaikan verifikasi captcha dulu.";
+        return;
+      }
+
+      setLoading(btn, true, "Daftar");
+      try {
+        if (!DEV_MODE) {
+          // Verifikasi captcha lewat Cloud Function sebelum bikin akun (production)
+          const verifyCaptcha = httpsCallable(functions, "verifyCaptcha");
+          const verifyResult = await verifyCaptcha({ token: captchaToken });
+          if (!verifyResult.data || !verifyResult.data.success) {
+            errEl.textContent = "Verifikasi captcha gagal, coba lagi.";
+            window.grecaptcha.reset();
+            setLoading(btn, false, "Daftar");
+            return;
+          }
+        }
+        // DEV_MODE: captcha cuma dicek widget-nya udah dicentang (di atas), tidak diverifikasi ke server
+
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(cred.user, { displayName: name });
+        await setDoc(doc(db, "users", cred.user.uid), {
+          name,
+          email,
+          createdAt: serverTimestamp(),
+          wins: 0,
+          gamesPlayed: 0
+        });
+        await sendEmailVerification(cred.user);
+        await signOut(auth);
+
+        errEl.style.color = "var(--gold)";
+        errEl.textContent = "Berhasil daftar! Cek email kamu untuk verifikasi, lalu masuk.";
+        registerForm.reset();
+        if (!DEV_MODE && window.grecaptcha) window.grecaptcha.reset();
+        document.querySelector('[data-tab="login"]').click();
+      } catch (err) {
+        errEl.textContent = mapAuthError(err.code);
+        if (!DEV_MODE && window.grecaptcha) window.grecaptcha.reset();
+      } finally {
+        setLoading(btn, false, "Daftar");
+      }
+    });
+
+    document.getElementById("resendLink").addEventListener("click", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("loginEmail").value.trim();
+      const password = document.getElementById("loginPassword").value;
+      try {
+        const cred = await signInWithEmailAndPassword(auth, email, password);
+        await sendEmailVerification(cred.user);
+        await signOut(auth);
+        alert("Email verifikasi terkirim ulang, cek inbox/spam ya.");
+      } catch (err) {
+        alert("Gagal kirim ulang: " + mapAuthError(err.code));
+      }
+    });
+
+    function mapAuthError(code) {
+      const map = {
+        "auth/email-already-in-use": "Email ini sudah terdaftar.",
+        "auth/invalid-email": "Format email tidak valid.",
+        "auth/weak-password": "Password minimal 6 karakter.",
+        "auth/user-not-found": "Akun tidak ditemukan.",
+        "auth/wrong-password": "Password salah.",
+        "auth/invalid-credential": "Email atau password salah.",
+        "auth/too-many-requests": "Terlalu banyak percobaan, coba lagi nanti."
+      };
+      return map[code] || "Terjadi kesalahan, coba lagi.";
+    }
+  </script>
+</body>
+</html>
