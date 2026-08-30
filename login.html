@@ -69,21 +69,14 @@
       doc,
       setDoc,
       getDoc,
-      serverTimestamp,
-      httpsCallable,
-      functions
+      serverTimestamp
     } from "./js/firebase-config.js";
     import { initPageTransition, navigateTo } from "./js/page-transition.js";
     initPageTransition();
 
-    // DEV_MODE = false -> captcha & verifikasi Cloud Function aktif penuh (versi production).
-    // Cloud Function verifyCaptcha WAJIB sudah di-deploy (lihat README) sebelum registrasi bisa jalan.
-    const DEV_MODE = false;
-
-    if (DEV_MODE) {
-      document.getElementById("captchaWidget").style.display = "none";
-      document.getElementById("captchaDevNote").style.display = "block";
-    }
+    // Verifikasi captcha cukup dicek widget-nya sudah dicentang (client-side saja).
+    // Tidak butuh Cloud Function/server tambahan - cocok buat yang cuma punya HP tanpa akses CLI.
+    // Ini bukan 100% anti-bot tingkat production, tapi cukup buat game santai.
 
     const tabs = document.querySelectorAll(".tab");
     const loginForm = document.getElementById("loginForm");
@@ -149,27 +142,14 @@
       const password = document.getElementById("regPassword").value;
       const btn = document.getElementById("registerBtn");
 
-      const captchaToken = window.grecaptcha && !DEV_MODE ? window.grecaptcha.getResponse() : "dev-mode-skip";
-      if (!DEV_MODE && !captchaToken) {
+      const captchaToken = window.grecaptcha ? window.grecaptcha.getResponse() : "";
+      if (!captchaToken) {
         errEl.textContent = "Selesaikan verifikasi captcha dulu.";
         return;
       }
 
       setLoading(btn, true, "Daftar");
       try {
-        if (!DEV_MODE) {
-          // Verifikasi captcha lewat Cloud Function sebelum bikin akun (production)
-          const verifyCaptcha = httpsCallable(functions, "verifyCaptcha");
-          const verifyResult = await verifyCaptcha({ token: captchaToken });
-          if (!verifyResult.data || !verifyResult.data.success) {
-            errEl.textContent = "Verifikasi captcha gagal, coba lagi.";
-            window.grecaptcha.reset();
-            setLoading(btn, false, "Daftar");
-            return;
-          }
-        }
-        // DEV_MODE: captcha cuma dicek widget-nya udah dicentang (di atas), tidak diverifikasi ke server
-
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(cred.user, { displayName: name });
         await setDoc(doc(db, "users", cred.user.uid), {
@@ -185,11 +165,11 @@
         errEl.style.color = "var(--gold)";
         errEl.textContent = "Berhasil daftar! Cek email kamu untuk verifikasi, lalu masuk.";
         registerForm.reset();
-        if (!DEV_MODE && window.grecaptcha) window.grecaptcha.reset();
+        if (window.grecaptcha) window.grecaptcha.reset();
         document.querySelector('[data-tab="login"]').click();
       } catch (err) {
         errEl.textContent = mapAuthError(err.code);
-        if (!DEV_MODE && window.grecaptcha) window.grecaptcha.reset();
+        if (window.grecaptcha) window.grecaptcha.reset();
       } finally {
         setLoading(btn, false, "Daftar");
       }
