@@ -1,0 +1,283 @@
+:root {
+  --paper: #f2e9d8;
+  --paper-2: #e8dcc3;
+  --ink: #2b2420;
+  --ink-soft: #5a5148;
+  --crimson: #a83a32;
+  --crimson-dark: #7a2a24;
+  --gold: #b5892c;
+  --gold-light: #d9b45a;
+  --indigo: #2d2a3a;
+  --line: rgba(43, 36, 32, 0.18);
+  --shadow: 0 2px 10px rgba(43, 36, 32, 0.15);
+  --radius: 14px;
+  --font-display: "Shippori Mincho", "Noto Serif JP", serif;
+  --font-body: "Zen Kaku Gothic New", "Noto Sans JP", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 20%, rgba(168,58,50,0.05) 0, transparent 45%),
+    radial-gradient(circle at 85% 80%, rgba(181,137,44,0.07) 0, transparent 50%);
+}
+
+h1, h2, h3 { font-family: var(--font-display); font-weight: 700; margin: 0 0 0.5em; color: var(--ink); }
+p { line-height: 1.6; margin: 0 0 1em; }
+a { color: var(--crimson-dark); }
+
+.wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 18px 40px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.brand {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.brand .kanji {
+  font-size: 13px;
+  letter-spacing: 0.3em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.brand h1 {
+  font-size: 32px;
+  margin: 4px 0 0;
+  letter-spacing: 0.04em;
+}
+
+.card-panel {
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  margin-top: 14px;
+}
+label:first-child { margin-top: 0; }
+
+input[type="text"],
+input[type="email"],
+input[type="password"],
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: #fffdf8;
+  color: var(--ink);
+  font-size: 15px;
+  font-family: var(--font-body);
+}
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--crimson);
+  box-shadow: 0 0 0 3px rgba(168,58,50,0.12);
+}
+
+button, .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--crimson-dark);
+  background: var(--crimson);
+  color: #fff8ee;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: transform 0.08s ease, background 0.15s ease;
+  text-decoration: none;
+}
+button:active, .btn:active { transform: scale(0.98); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.btn-gold {
+  background: var(--gold);
+  border-color: #8f6a1e;
+  color: #2b2200;
+}
+
+.error-msg {
+  color: var(--crimson-dark);
+  font-size: 13px;
+  margin-top: 10px;
+  min-height: 16px;
+}
+.hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 8px;
+}
+
+.link-row {
+  text-align: center;
+  margin-top: 18px;
+  font-size: 14px;
+}
+
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 18px;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab.active {
+  color: var(--crimson-dark);
+  border-color: var(--crimson);
+}
+
+/* ---- Game card visual ---- */
+.role-card {
+  position: relative;
+  border-radius: 12px;
+  background: #fffdf6;
+  border: 1px solid var(--line);
+  padding: 14px 12px 12px;
+  text-align: center;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.role-card::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(181,137,44,0.4);
+  border-radius: 8px;
+  pointer-events: none;
+}
+.role-card .role-icon {
+  width: 58px;
+  height: 58px;
+  margin: 4px auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.role-card .role-icon svg { width: 100%; height: 100%; }
+.role-card .role-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.role-card .role-desc {
+  font-size: 11px;
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+.role-card.face-down {
+  background: var(--indigo);
+  color: #eee6d2;
+}
+.role-card.face-down .role-name,
+.role-card.face-down .role-desc { color: #cfc7b0; }
+.role-card.face-down::before { border-color: rgba(217,180,90,0.3); }
+.role-card.revealed { opacity: 0.5; }
+.role-card.revealed::after {
+  content: "GUGUR";
+  position: absolute;
+  top: 44%;
+  left: 0; right: 0;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  color: var(--crimson);
+  font-size: 12px;
+  transform: rotate(-8deg);
+}
+
+.role-tag-amber { border-color: #b5892c; }
+.role-tag-red { border-color: #a83a32; }
+.role-tag-teal { border-color: #2c7a6b; }
+.role-tag-purple { border-color: #6a4e9e; }
+.role-tag-pink { border-color: #b04a76; }
+
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid rgba(255,255,255,0.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.center-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  flex-direction: column;
+  gap: 12px;
+  color: var(--ink-soft);
+}
+
+/* ---- Page transition overlay ---- */
+.page-transition-overlay {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 9999;
+  opacity: 1;
+  transition: opacity 1s ease;
+  pointer-events: none;
+}
+.page-transition-overlay.hide {
+  opacity: 0;
+}
+
+/* ---- Slide up entrance animation ---- */
+.slide-up-in {
+  opacity: 0;
+  transform: translateY(36px);
+  animation: slideUpIn 1s ease forwards;
+}
+@keyframes slideUpIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (min-width: 700px) {
+  .wrap { max-width: 640px; }
+  }
+  
